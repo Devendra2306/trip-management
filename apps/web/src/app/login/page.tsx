@@ -2,17 +2,73 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Train, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Train, Mail, ArrowRight, CheckCircle2, Lock, UserPlus, LogIn, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [authMode, setAuthMode] = useState<'password' | 'magic_link'>('password');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const formatAuthError = (err: unknown): string => {
+    if (!err) return 'Authentication failed';
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('Unsupported provider') || message.includes('provider is not enabled')) {
+      return 'That provider is not enabled in your Supabase project. In your Supabase Dashboard, go to Authentication > Providers to enable it, or sign in using Email & Password below.';
+    }
+    return message;
+  };
+
+  const handlePasswordAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+
+      if (isSignUp) {
+        // Sign up
+        const { data, error: signUpErr } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (signUpErr) throw signUpErr;
+
+        if (data.session) {
+          router.push('/trips');
+          router.refresh();
+        } else {
+          setSignUpSuccess(true);
+        }
+      } else {
+        // Sign in
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signInErr) throw signInErr;
+
+        router.push('/trips');
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      setError(formatAuthError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +78,7 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
       const { error: authError } = await supabase.auth.signInWithOtp({
-        email,
+        email: email.trim(),
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -31,7 +87,7 @@ export default function LoginPage() {
       if (authError) throw authError;
       setMagicLinkSent(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to send login link');
+      setError(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -50,7 +106,7 @@ export default function LoginPage() {
       });
       if (authError) throw authError;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Google sign in failed');
+      setError(formatAuthError(err));
       setLoading(false);
     }
   };
@@ -90,11 +146,33 @@ export default function LoginPage() {
                 Use a different email
               </Button>
             </div>
+          ) : signUpSuccess ? (
+            <div className="text-center py-6 space-y-4">
+              <div className="inline-flex p-3 rounded-full bg-green-50 text-forest">
+                <CheckCircle2 className="h-10 w-10" />
+              </div>
+              <h2 className="text-lg font-bold text-navy">Account Created!</h2>
+              <p className="text-sm text-slate">
+                Please check your email to confirm your account (or sign in below if email confirmations are disabled).
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setSignUpSuccess(false);
+                  setIsSignUp(false);
+                }}
+                className="mt-4"
+              >
+                Sign In Now
+              </Button>
+            </div>
           ) : (
             <div className="space-y-6">
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 text-rust text-xs rounded-md">
-                  {error}
+                <div className="p-3.5 bg-red-50 border border-red-200 text-rust text-xs rounded-lg flex items-start space-x-2">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{error}</span>
                 </div>
               )}
 
@@ -126,30 +204,97 @@ export default function LoginPage() {
                 Continue with Google
               </button>
 
-              <div className="relative flex items-center justify-center">
-                <div className="flex-grow border-t border-ash" />
-                <span className="flex-shrink mx-3 text-xs text-slate font-mono uppercase">
-                  or magic link
-                </span>
-                <div className="flex-grow border-t border-ash" />
+              {/* Mode Switcher */}
+              <div className="flex rounded-lg bg-mist p-1 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('password')}
+                  className={`flex-1 py-1.5 rounded-md transition-all ${
+                    authMode === 'password'
+                      ? 'bg-white text-navy shadow-xs'
+                      : 'text-slate hover:text-navy'
+                  }`}
+                >
+                  Email & Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('magic_link')}
+                  className={`flex-1 py-1.5 rounded-md transition-all ${
+                    authMode === 'magic_link'
+                      ? 'bg-white text-navy shadow-xs'
+                      : 'text-slate hover:text-navy'
+                  }`}
+                >
+                  Magic Link
+                </button>
               </div>
 
-              {/* Email Magic Link form */}
-              <form onSubmit={handleMagicLink} className="space-y-4">
-                <Input
-                  type="email"
-                  label="Email Address"
-                  placeholder="traveler@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-                <Button type="submit" isLoading={loading} className="w-full">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Magic Link
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </form>
+              {authMode === 'password' ? (
+                /* Email & Password Form */
+                <form onSubmit={handlePasswordAuth} className="space-y-4">
+                  <Input
+                    type="email"
+                    label="Email Address"
+                    placeholder="traveler@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  <Input
+                    type="password"
+                    label="Password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+
+                  <Button type="submit" isLoading={loading} className="w-full">
+                    {isSignUp ? (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Create Account
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Sign In
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsSignUp(!isSignUp)}
+                      className="text-xs text-saffron font-bold hover:underline"
+                    >
+                      {isSignUp
+                        ? 'Already have an account? Sign In'
+                        : "Don't have an account? Create one"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                /* Magic Link Form */
+                <form onSubmit={handleMagicLink} className="space-y-4">
+                  <Input
+                    type="email"
+                    label="Email Address"
+                    placeholder="traveler@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  <Button type="submit" isLoading={loading} className="w-full">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Magic Link
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </form>
+              )}
             </div>
           )}
         </div>
