@@ -25,7 +25,7 @@ export function Navbar() {
             <Train className="h-5 w-5" />
           </div>
           <div>
-            <span className="font-mono text-lg font-black tracking-wider text-white">YATRA</span>
+            <span className="font-mono text-lg font-black tracking-wider text-white">JAL KHOJ</span>
             <span className="text-[10px] block font-mono text-brass tracking-widest uppercase">
               JOURNEY & EXPENSES
             </span>

@@ -162,7 +162,7 @@ export function TicketStub({ ticket, latestStatus, onDelete, canDelete }: Ticket
               />
             ))}
           </div>
-          <span className="text-[9px] font-mono text-slate mt-1">YATRA SECURE PASS</span>
+          <span className="text-[9px] font-mono text-slate mt-1">JAL KHOJ SECURE PASS</span>
         </div>
       </div>
     </div>

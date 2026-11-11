@@ -58,7 +58,7 @@ export default function JoinTripPage() {
 
         <div>
           <span className="text-[10px] font-mono uppercase tracking-widest text-slate block mb-1">
-            YATRA JOURNEY INVITE
+            JAL KHOJ JOURNEY INVITE
           </span>
           <h1 className="text-2xl font-black text-navy">Joining Trip {code}</h1>
         </div>

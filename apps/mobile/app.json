@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Yatra",
-    "slug": "yatra",
+    "name": "Jal Khoj",
+    "slug": "jal-khoj",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "yatra",
+    "scheme": "jalkhoj",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
@@ -14,25 +14,29 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yatra.app"
+      "bundleIdentifier": "com.jalkhoj.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1B1F3B"
       },
-      "package": "com.yatra.app",
+      "package": "com.jalkhoj.app",
       "intentFilters": [
         {
           "action": "VIEW",
           "data": [
+            {
+              "scheme": "jalkhoj",
+              "host": "join"
+            },
             {
               "scheme": "yatra",
               "host": "join"
             },
             {
               "scheme": "https",
-              "host": "*.yatra.app",
+              "host": "*.jalkhoj.app",
               "pathPrefix": "/join"
             }
           ],

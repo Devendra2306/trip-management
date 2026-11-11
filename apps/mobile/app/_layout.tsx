@@ -32,7 +32,7 @@ export default function RootLayout() {
     // 2. Handle deep linking
     const handleDeepLink = (event: { url: string }) => {
       const parsed = Linking.parse(event.url);
-      // Handles yatra://join/CODE or https://*.yatra.app/join/CODE
+      // Handles jalkhoj://join/CODE, yatra://join/CODE or https://*.jalkhoj.app/join/CODE
       if (parsed.path?.includes('join/')) {
         const parts = parsed.path.split('join/');
         const code = parts[1]?.replace('/', '');

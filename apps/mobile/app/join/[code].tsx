@@ -46,7 +46,7 @@ export default function MobileJoinScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.badge}>INDIAN RAILWAYS PASS</Text>
+        <Text style={styles.badge}>JAL KHOJ PASS</Text>
         <Text style={styles.title}>Joining Trip {code}</Text>
 
         {loading ? (

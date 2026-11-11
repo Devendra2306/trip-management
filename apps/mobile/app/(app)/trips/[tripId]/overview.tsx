@@ -51,7 +51,7 @@ export default function MobileOverviewTab() {
     if (!trip) return;
     try {
       await Share.share({
-        message: `Join our train trip "${trip.name}" on Yatra! Use invite code: ${trip.invite_code} or open: yatra://join/${trip.invite_code}`,
+        message: `Join our train trip "${trip.name}" on Jal Khoj! Use invite code: ${trip.invite_code} or open: jalkhoj://join/${trip.invite_code}`,
       });
     } catch (e) {
       console.warn('Share error', e);

@@ -63,7 +63,7 @@ export default function LoginPage() {
           <div className="inline-flex p-3 rounded-xl bg-saffron text-white mb-3 shadow-md">
             <Train className="h-8 w-8" />
           </div>
-          <h1 className="font-mono text-2xl font-black tracking-wider">YATRA</h1>
+          <h1 className="font-mono text-2xl font-black tracking-wider">JAL KHOJ</h1>
           <p className="text-xs font-mono text-brass uppercase tracking-widest mt-1">
             BOARDING PASS LOGIN
           </p>

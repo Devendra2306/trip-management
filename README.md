@@ -1,4 +1,4 @@
-# Yatra — Indian Railways Journey & Expense Planner
+# Jal Khoj — Indian Railways Journey & Expense Planner
 
 > A monorepo for group train travels across India. Track live PNR changes with split-flap status displays, coordinate organizer-guided itineraries, split group expenses with debt-simplification, settle debts instantly via UPI intent links, and access ticket details offline without cellular signal inside trains.
 
@@ -50,7 +50,7 @@ trip-management/
 │       │   ├── (auth)/login    # Mobile boarding pass login
 │       │   ├── (app)/trips/    # Trips list + [tripId] tabs
 │       │   │   └── [tripId]/   # Overview, trains, plan, money tabs
-│       │   └── join/[code]     # Deep link handler (yatra://join/CODE)
+│       │   └── join/[code]     # Deep link handler (jalkhoj://join/CODE)
 │       ├── src/components/     # Reanimated SplitFlapDisplay, TicketStub, SettleUpButton
 │       ├── src/lib/offline/    # Local storage caching & offline sync queue
 │       └── src/lib/            # Notifications, Supabase client
@@ -212,11 +212,11 @@ eas build --platform android --profile preview --local
 
 ## Deep Linking Configuration
 
-- **Scheme**: `yatra://join/{INVITE_CODE}`
-- **Universal / App Link**: `https://*.yatra.app/join/{INVITE_CODE}`
+- **Scheme**: `jalkhoj://join/{INVITE_CODE}` (or `yatra://join/{INVITE_CODE}`)
+- **Universal / App Link**: `https://*.jalkhoj.app/join/{INVITE_CODE}`
 - Testing deep links on Android emulator:
   ```bash
-  npx uri-scheme open "yatra://join/VNS26X" --android
+  npx uri-scheme open "jalkhoj://join/VNS26X" --android
   ```
 
 ---

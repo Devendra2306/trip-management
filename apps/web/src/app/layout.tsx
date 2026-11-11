@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Yatra - Indian Railways Journey & Expense Planner',
+  title: 'Jal Khoj - Indian Railways Journey & Expense Planner',
   description: 'Plan group train journeys, track live PNR changes, coordinate itineraries, and split expenses effortlessly.',
 };
 

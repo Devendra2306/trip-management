@@ -12,7 +12,7 @@ export default function LandingPage() {
             <div className="p-2 rounded-lg bg-saffron text-white shadow-sm">
               <Train className="h-5 w-5" />
             </div>
-            <span className="font-mono text-xl font-black text-navy tracking-wider">YATRA</span>
+            <span className="font-mono text-xl font-black text-navy tracking-wider">JAL KHOJ</span>
           </div>
           <div className="flex items-center space-x-3">
             <Link href="/login">
@@ -103,7 +103,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-ash py-8 bg-white text-center text-xs text-slate">
-        <p>© 2026 Yatra Travel Technologies. Built with Next.js, Expo, and Supabase.</p>
+        <p>© 2026 Jal Khoj Travel Technologies. Built with Next.js, Expo, and Supabase.</p>
       </footer>
     </div>
   );

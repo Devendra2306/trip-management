@@ -37,7 +37,7 @@ export function SettleUpModal({
     payeeVpa,
     payeeName: receiverName,
     amount: amountRupees,
-    note: `Yatra trip settlement to ${receiverName}`,
+    note: `Jal Khoj trip settlement to ${receiverName}`,
   });
 
   const handleRecordSettlement = async () => {

@@ -15,8 +15,8 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
   let token: string | null = null;
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('yatra-alerts', {
-      name: 'Yatra Railway & Expense Alerts',
+    await Notifications.setNotificationChannelAsync('jalkhoj-alerts', {
+      name: 'Jal Khoj Railway & Expense Alerts',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF6B35',

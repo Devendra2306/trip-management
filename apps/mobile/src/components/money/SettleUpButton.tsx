@@ -27,7 +27,7 @@ export function SettleUpButton({
       payeeVpa: payeeVpa || 'traveler@upi',
       payeeName,
       amount: amountRupees,
-      note: `Yatra trip settlement to ${payeeName}`,
+      note: `Jal Khoj trip settlement to ${payeeName}`,
     });
 
     try {

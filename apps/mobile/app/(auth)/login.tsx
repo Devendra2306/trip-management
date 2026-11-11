@@ -31,7 +31,7 @@ export default function LoginScreen() {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: 'yatra://auth/callback',
+          emailRedirectTo: 'jalkhoj://auth/callback',
         },
       });
 
@@ -53,7 +53,7 @@ export default function LoginScreen() {
         {/* Railway Ticket Header */}
         <View style={styles.header}>
           <Text style={styles.badge}>INDIAN RAILWAYS APP PASS</Text>
-          <Text style={styles.title}>YATRA</Text>
+          <Text style={styles.title}>JAL KHOJ</Text>
           <Text style={styles.subtitle}>Sign in to access your journeys and live PNRs</Text>
         </View>
 
@@ -62,7 +62,7 @@ export default function LoginScreen() {
             <View style={styles.successBlock}>
               <Text style={styles.successTitle}>Check Your Inbox</Text>
               <Text style={styles.successDesc}>
-                We sent a secure magic link to {email}. Tap it to open Yatra.
+                We sent a secure magic link to {email}. Tap it to open Jal Khoj.
               </Text>
               <Button
                 title="Use another email"
