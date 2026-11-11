@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Train, Search, RotateCcw, Check, Plus, AlertCircle, X, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Train, Search, RotateCcw, Check, Plus, AlertCircle, X, ShieldCheck, Settings, Key, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PnrStatusBadge } from './PnrStatusBadge';
 import { createClient } from '@/lib/supabase/client';
@@ -34,6 +34,7 @@ interface PnrResponseData {
   chart_prepared: boolean;
   passengers: PassengerData[];
   source: string;
+  source_label?: string;
 }
 
 export function OfficialPnrEnquiryModal({
@@ -48,8 +49,28 @@ export function OfficialPnrEnquiryModal({
   const [data, setData] = useState<PnrResponseData | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('jalkhoj_indianrail_key');
+      if (stored) setApiKey(stored);
+    }
+  }, []);
 
   if (!isOpen) return null;
+
+  const handleSaveApiKey = (newKey: string) => {
+    setApiKey(newKey);
+    if (typeof window !== 'undefined') {
+      if (newKey) {
+        localStorage.setItem('jalkhoj_indianrail_key', newKey);
+      } else {
+        localStorage.removeItem('jalkhoj_indianrail_key');
+      }
+    }
+  };
 
   const handleEnquiry = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -66,7 +87,8 @@ export function OfficialPnrEnquiryModal({
     setSaved(false);
 
     try {
-      const res = await fetch(`/api/pnr/${cleanPnr}`);
+      const queryParam = apiKey ? `?apikey=${encodeURIComponent(apiKey)}` : '';
+      const res = await fetch(`/api/pnr/${cleanPnr}${queryParam}`);
       const json = await res.json();
 
       if (!res.ok || json.error) {
@@ -220,6 +242,48 @@ export function OfficialPnrEnquiryModal({
                 )}
               </div>
             </form>
+
+            {/* API Gateway Configuration Drawer */}
+            <div className="pt-2 border-t border-ash/60 mt-3 flex items-center justify-between text-xs">
+              <button
+                type="button"
+                onClick={() => setShowSettings(!showSettings)}
+                className="text-slate hover:text-navy font-mono text-[11px] flex items-center space-x-1 transition-colors"
+              >
+                <Settings className="h-3.5 w-3.5 text-saffron" />
+                <span>
+                  API Gateway:{' '}
+                  <strong className="text-navy">
+                    {apiKey ? 'Custom Key Configured' : 'Auto (CRIS / IndianRailAPI / Simulator)'}
+                  </strong>
+                </span>
+              </button>
+              <span className="text-[10px] text-slate/70 font-mono hidden sm:inline">
+                Supports indianrailapi.com & crisapis.indianrail.gov.in
+              </span>
+            </div>
+
+            {showSettings && (
+              <div className="mt-3 p-3 bg-mist/60 rounded-xl border border-ash space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <label className="font-mono font-bold text-navy text-[11px] flex items-center space-x-1.5">
+                    <Key className="h-3.5 w-3.5 text-brass" />
+                    <span>Enter IndianRailAPI Key / CRIS Token</span>
+                  </label>
+                  <span className="text-[10px] text-slate font-mono">Saved in browser</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. your-indianrailapi-apikey or cris-token"
+                  value={apiKey}
+                  onChange={(e) => handleSaveApiKey(e.target.value.trim())}
+                  className="w-full h-9 px-3 text-xs font-mono bg-white border border-ash rounded-lg focus:outline-none focus:border-saffron"
+                />
+                <p className="text-[10px] text-slate leading-relaxed">
+                  Endpoints supported: <code>http://indianrailapi.com/api/v2/PNRCheck/apikey/&lt;key&gt;/PNRNumber/&lt;pnr&gt;/Route/1/</code> and <code>crisapis.indianrail.gov.in/devportal</code>. If left blank, server environment variables or realistic CRIS mirror simulator are used.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Error Message */}
@@ -243,6 +307,22 @@ export function OfficialPnrEnquiryModal({
           {/* ENQUIRY RESULTS (Authentic indianrail.gov.in Style) */}
           {data && (
             <div className="space-y-5 animate-fadeIn">
+              {/* Gateway Source Banner */}
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <span className="text-[11px] font-mono text-slate flex items-center space-x-1.5">
+                  <Globe className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>
+                    Gateway Source:{' '}
+                    <strong className="text-navy font-bold">
+                      {data.source_label || (data.source === 'indianrailapi' ? 'IndianRailAPI Live Gateway' : data.source === 'cris_pravah' ? 'CRIS Pravah Official Gateway' : 'Indian Railways CRIS Live')}
+                    </strong>
+                  </span>
+                </span>
+                <span className="text-[10px] font-mono text-slate bg-ash/50 px-2 py-0.5 rounded font-bold">
+                  PNR: {data.pnr}
+                </span>
+              </div>
+
               {/* Journey Details Table */}
               <div className="bg-white rounded-xl border-2 border-[#003366]/20 overflow-hidden shadow-xs">
                 <div className="bg-[#003366] text-white px-4 py-2 font-mono text-xs font-bold tracking-wider flex items-center justify-between">
