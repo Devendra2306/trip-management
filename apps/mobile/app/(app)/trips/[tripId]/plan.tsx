@@ -112,13 +112,6 @@ export default function MobilePlanTab() {
 
       const userId = user?.id || DEFAULT_USER.id;
 
-      // Ensure profile exists for PIN user
-      await supabase.from('profiles').upsert({
-        id: userId,
-        email: user?.email || DEFAULT_USER.email,
-        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
-      });
-
       const { error } = await supabase.from('itinerary_items').insert({
         trip_id: tripId,
         day_number: parseInt(dayNumber, 10) || 1,

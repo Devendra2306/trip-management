@@ -126,13 +126,6 @@ export function AddExpenseModal({
       const userId = user?.id || effectiveCurrentUserId;
       const actualPaidBy = paidBy || userId;
 
-      // Ensure profile exists for PIN user
-      await supabase.from('profiles').upsert({
-        id: userId,
-        email: user?.email || DEFAULT_USER.email,
-        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
-      });
-
       // 1. Insert expense
       const { data: expense, error: expError } = await supabase
         .from('expenses')

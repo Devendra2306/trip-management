@@ -35,13 +35,6 @@ export default function NewTripScreen() {
 
       const userId = user?.id || DEFAULT_USER.id;
 
-      // Ensure profile exists for PIN user
-      await supabase.from('profiles').upsert({
-        id: userId,
-        email: user?.email || DEFAULT_USER.email,
-        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
-      });
-
       const inviteCode = generateInviteCode();
 
       // 1. Insert trip

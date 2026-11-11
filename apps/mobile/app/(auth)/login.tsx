@@ -15,32 +15,32 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { HARDCODED_PIN, DEFAULT_USER, setPinAuthenticated } from '../../src/lib/auth';
 import { Button } from '../../src/components/ui/Button';
+import { Input } from '../../src/components/ui/Input';
 import { PALETTE } from '@yatra/shared';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'pin' | 'email'>('pin');
+
+  // PIN state
   const [pin, setPin] = useState('');
+
+  // Email state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+
+  // Status
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const grantAccess = async () => {
+  // 1. PIN Access
+  const grantPinAccess = async () => {
     setLoading(true);
     try {
       await setPinAuthenticated();
-
-      // Ensure profile exists in background if Supabase reachable
-      try {
-        await supabase.from('profiles').upsert({
-          id: DEFAULT_USER.id,
-          email: DEFAULT_USER.email,
-          display_name: DEFAULT_USER.display_name,
-        });
-      } catch (e) {
-        // Safe to ignore in offline mode
-      }
-
       router.replace('/(app)/trips');
-    } catch (err: unknown) {
+    } catch {
       Alert.alert('Access Error', 'Failed to store login credentials.');
     } finally {
       setLoading(false);
@@ -51,12 +51,13 @@ export default function LoginScreen() {
     setError(null);
     const cleanPin = pin.trim().replace(/\s+/g, '');
     if (cleanPin === HARDCODED_PIN) {
-      grantAccess();
+      grantPinAccess();
     } else {
-      setError(`Incorrect PIN. Please enter ${HARDCODED_PIN}.`);
+      setError('Incorrect security PIN. Please try again.');
     }
   };
 
+  // 2. Google OAuth
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
@@ -82,11 +83,57 @@ export default function LoginScreen() {
       ) {
         Alert.alert(
           'Google Provider Notice',
-          'Google OAuth is not enabled in your Supabase project yet. You can use the PIN (7977303911) or One-Click Access button below to log in directly!'
+          'Google OAuth is not enabled in your Supabase project yet. You can sign in using your Security PIN or Email & Password.'
         );
       } else {
         Alert.alert('Google Sign-In Failed', msg);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Email & Password Auth
+  const handleEmailAuth = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Required Fields', 'Please enter your email and password.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      if (isSignUp) {
+        const { data, error: signUpErr } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
+
+        if (signUpErr) throw signUpErr;
+
+        if (data.session) {
+          await setPinAuthenticated();
+          router.replace('/(app)/trips');
+        } else {
+          Alert.alert(
+            'Account Created!',
+            'Please check your email to verify your registration, or sign in.'
+          );
+          setIsSignUp(false);
+        }
+      } else {
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (signInErr) throw signInErr;
+
+        await setPinAuthenticated();
+        router.replace('/(app)/trips');
+      }
+    } catch (err: unknown) {
+      Alert.alert('Sign In Failed', err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -103,16 +150,38 @@ export default function LoginScreen() {
           <Text style={styles.badge}>SECURE ACCESS</Text>
           <Text style={styles.title}>JAL KHOJ</Text>
           <Text style={styles.subtitle}>
-            Sign in with Google or enter PIN to access your train journeys & shared expenses.
+            Journeys, Train PNRs, Itineraries & Group Expenses
           </Text>
         </View>
 
         {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sign In</Text>
-          <Text style={styles.cardSubtitle}>
-            Choose Google Sign-In or Direct PIN Access
-          </Text>
+          {/* Segmented control */}
+          <View style={styles.tabBar}>
+            <TouchableOpacity
+              style={[styles.tabBtn, activeTab === 'pin' && styles.tabBtnActive]}
+              onPress={() => {
+                setActiveTab('pin');
+                setError(null);
+              }}
+            >
+              <Text style={[styles.tabText, activeTab === 'pin' && styles.tabTextActive]}>
+                SECURITY PIN
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabBtn, activeTab === 'email' && styles.tabBtnActive]}
+              onPress={() => {
+                setActiveTab('email');
+                setError(null);
+              }}
+            >
+              <Text style={[styles.tabText, activeTab === 'email' && styles.tabTextActive]}>
+                EMAIL & GOOGLE
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {error && (
             <View style={styles.errorBanner}>
@@ -120,61 +189,97 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* Option 1: Continue with Google */}
-          <TouchableOpacity
-            style={styles.googleBtn}
-            onPress={handleGoogleLogin}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.googleIcon}>G</Text>
-            <Text style={styles.googleBtnText}>Continue with Google</Text>
-          </TouchableOpacity>
+          {/* TAB 1: PIN ACCESS (Masked, Secret) */}
+          {activeTab === 'pin' && (
+            <View>
+              <Text style={styles.cardTitle}>Enter Security PIN</Text>
+              <Text style={styles.cardSubtitle}>
+                Private PIN access. Enter your authorization PIN to unlock the application.
+              </Text>
 
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR USE PIN</Text>
-            <View style={styles.dividerLine} />
-          </View>
+              <View style={styles.pinContainer}>
+                <Text style={styles.pinLabel}>SECURITY PIN</Text>
+                <TextInput
+                  style={styles.pinInput}
+                  placeholder="••••••••••"
+                  placeholderTextColor="#A0AEC0"
+                  value={pin}
+                  onChangeText={(val) => {
+                    setError(null);
+                    setPin(val.replace(/\D/g, ''));
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  secureTextEntry={true}
+                  autoFocus
+                />
+              </View>
 
-          {/* Option 2: PIN input */}
-          <View style={styles.pinContainer}>
-            <Text style={styles.pinLabel}>ACCESS PIN (7977303911)</Text>
-            <TextInput
-              style={styles.pinInput}
-              placeholder="7977303911"
-              placeholderTextColor="#A0AEC0"
-              value={pin}
-              onChangeText={(val) => {
-                setError(null);
-                setPin(val.replace(/\D/g, ''));
-              }}
-              keyboardType="number-pad"
-              maxLength={10}
-            />
-          </View>
+              <Button
+                title="Unlock Jal Khoj"
+                onPress={handlePinSubmit}
+                isLoading={loading}
+                style={{ marginTop: 8 }}
+              />
+            </View>
+          )}
 
-          <Button
-            title="Unlock Jal Khoj"
-            onPress={handlePinSubmit}
-            isLoading={loading}
-            style={{ marginTop: 4 }}
-          />
+          {/* TAB 2: EMAIL & GOOGLE */}
+          {activeTab === 'email' && (
+            <View>
+              {/* Google Button */}
+              <TouchableOpacity
+                style={styles.googleBtn}
+                onPress={handleGoogleLogin}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.googleIcon}>G</Text>
+                <Text style={styles.googleBtnText}>Continue with Google</Text>
+              </TouchableOpacity>
 
-          {/* Instant 1-Click Access Button */}
-          <View style={styles.divider} />
-          <TouchableOpacity
-            style={styles.quickAccessButton}
-            onPress={grantAccess}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.quickAccessBadge}>⚡ ONE-CLICK ACCESS</Text>
-            <Text style={styles.quickAccessText}>
-              Direct Login (PIN: {HARDCODED_PIN})
-            </Text>
-          </TouchableOpacity>
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR WITH EMAIL</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Input
+                label="Email Address"
+                placeholder="traveler@example.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <Input
+                label="Password"
+                placeholder="••••••••"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+
+              <Button
+                title={isSignUp ? 'Create Account' : 'Sign In'}
+                onPress={handleEmailAuth}
+                isLoading={loading}
+                style={{ marginTop: 4 }}
+              />
+
+              <TouchableOpacity
+                style={styles.switchSignUp}
+                onPress={() => setIsSignUp(!isSignUp)}
+              >
+                <Text style={styles.switchSignUpText}>
+                  {isSignUp
+                    ? 'Already have an account? Sign In'
+                    : "Don't have an account? Sign Up"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -193,7 +298,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   badge: {
     fontSize: 10,
@@ -201,10 +306,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: PALETTE.brass,
     letterSpacing: 1.5,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   title: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '900',
     color: PALETTE.navy,
     letterSpacing: 2,
@@ -228,8 +333,39 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 18,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabText: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontWeight: '700',
+    color: PALETTE.slate,
+  },
+  tabTextActive: {
+    color: PALETTE.navy,
+    fontWeight: '800',
+  },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: PALETTE.navy,
     textAlign: 'center',
@@ -248,30 +384,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: PALETTE.ash,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    marginBottom: 10,
   },
   googleIcon: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#4285F4',
-    marginRight: 10,
+    marginRight: 8,
   },
   googleBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: PALETTE.navy,
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
+    marginVertical: 10,
   },
   dividerLine: {
     flex: 1,
@@ -280,7 +412,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     paddingHorizontal: 10,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     color: PALETTE.slate,
@@ -292,7 +424,7 @@ const styles = StyleSheet.create({
     borderColor: '#FEB2B2',
     padding: 10,
     borderRadius: 8,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   errorText: {
     color: PALETTE.rust,
@@ -322,35 +454,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    letterSpacing: 4,
+    letterSpacing: 6,
     color: PALETTE.navy,
   },
-  divider: {
-    height: 1,
-    backgroundColor: PALETTE.ash,
-    marginVertical: 14,
-  },
-  quickAccessButton: {
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1.5,
-    borderColor: '#A7F3D0',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+  switchSignUp: {
+    marginTop: 10,
     alignItems: 'center',
   },
-  quickAccessBadge: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#059669',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    letterSpacing: 1,
-    marginBottom: 2,
-  },
-  quickAccessText: {
-    fontSize: 12,
+  switchSignUpText: {
+    fontSize: 11,
+    color: PALETTE.saffron,
     fontWeight: '700',
-    color: '#065F46',
   },
 });

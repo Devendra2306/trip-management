@@ -49,41 +49,53 @@ export default function NewTripPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      const userId = user?.id || '00000000-0000-0000-0000-000000000001';
+      let createdTripId: string | null = null;
 
-      // Ensure profile exists for PIN user
-      await supabase.from('profiles').upsert({
-        id: userId,
-        email: 'admin@jalkhoj.app',
-        display_name: 'Lead Traveler',
-      });
+      if (user) {
+        const inviteCode = generateInviteCode();
+        const { data: trip, error: tripError } = await supabase
+          .from('trips')
+          .insert({
+            name: payload.name,
+            description: payload.description,
+            start_date: payload.start_date,
+            end_date: payload.end_date,
+            invite_code: inviteCode,
+            created_by: user.id,
+          })
+          .select()
+          .single();
 
-      const inviteCode = generateInviteCode();
+        if (!tripError && trip) {
+          createdTripId = trip.id;
+          await supabase.from('trip_members').upsert({
+            trip_id: trip.id,
+            user_id: user.id,
+            role: 'organizer',
+          });
+        }
+      }
 
-      // 1. Insert trip
-      const { data: trip, error: tripError } = await supabase
-        .from('trips')
-        .insert({
-          name: payload.name,
-          description: payload.description,
-          start_date: payload.start_date,
-          end_date: payload.end_date,
-          invite_code: inviteCode,
-          created_by: userId,
-        })
-        .select()
-        .single();
+      // If client-side insert failed or user is in PIN mode, call server API
+      if (!createdTripId) {
+        const res = await fetch('/api/trips', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      if (tripError) throw tripError;
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || 'Failed to create trip');
+        }
+        createdTripId = data.trip?.id;
+      }
 
-      // 2. Insert creator as organizer in trip_members
-      await supabase.from('trip_members').upsert({
-        trip_id: trip.id,
-        user_id: userId,
-        role: 'organizer',
-      });
+      if (!createdTripId) {
+        throw new Error('Unable to create trip. Please try again.');
+      }
 
-      router.push(`/trips/${trip.id}`);
+      router.push(`/trips/${createdTripId}`);
     } catch (err: unknown) {
       setErrors({ form: err instanceof Error ? err.message : 'Failed to create trip' });
     } finally {

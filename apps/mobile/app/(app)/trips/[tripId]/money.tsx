@@ -205,12 +205,6 @@ export default function MobileMoneyTab() {
 
     // ONLINE INSERT
     try {
-      await supabase.from('profiles').upsert({
-        id: effectiveUserId,
-        email: DEFAULT_USER.email,
-        display_name: DEFAULT_USER.display_name,
-      });
-
       const { data: exp, error: expErr } = await supabase
         .from('expenses')
         .insert({
