@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Train, Calendar, User, ArrowRight, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Train, Calendar, User, ArrowRight, Trash2, RefreshCw } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { PnrStatusBadge } from './PnrStatusBadge';
 import type { Ticket, PnrStatusHistory } from '@yatra/shared';
@@ -11,11 +11,25 @@ interface TicketStubProps {
   latestStatus?: PnrStatusHistory | null;
   onDelete?: () => void;
   canDelete?: boolean;
+  onRefresh?: () => void;
 }
 
-export function TicketStub({ ticket, latestStatus, onDelete, canDelete }: TicketStubProps) {
+export function TicketStub({ ticket, latestStatus, onDelete, canDelete, onRefresh }: TicketStubProps) {
+  const [refreshing, setRefreshing] = useState(false);
   const statusData = latestStatus?.status_data;
   const passengers = statusData?.passengers || [];
+
+  const handleRefreshLiveStatus = async () => {
+    setRefreshing(true);
+    try {
+      await fetch(`/api/pnr/${ticket.pnr}?ticket_id=${ticket.id}&boarding_date=${ticket.boarding_date}`);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.warn('Failed to refresh live PNR', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <div className="relative flex flex-col md:flex-row bg-[#FFFDF8] rounded-2xl border-2 border-brass/40 shadow-md hover:shadow-lg transition-all overflow-hidden my-4">
@@ -141,7 +155,7 @@ export function TicketStub({ ticket, latestStatus, onDelete, canDelete }: Ticket
           )}
         </div>
 
-        <div className="my-4 w-full">
+        <div className="my-3 w-full">
           <span className="text-[10px] font-mono uppercase tracking-wider text-slate block mb-1">
             Current Status
           </span>
@@ -150,6 +164,16 @@ export function TicketStub({ ticket, latestStatus, onDelete, canDelete }: Ticket
           ) : (
             <PnrStatusBadge status="CNF" className="w-full justify-center text-sm py-1.5" />
           )}
+
+          <button
+            type="button"
+            onClick={handleRefreshLiveStatus}
+            disabled={refreshing}
+            className="w-full mt-2.5 py-1.5 px-2 text-[10px] font-mono font-bold text-navy hover:text-saffron border border-ash hover:border-saffron bg-white rounded-md flex items-center justify-center space-x-1.5 transition-all shadow-xs"
+          >
+            <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin text-saffron' : 'text-slate'}`} />
+            <span>{refreshing ? 'Querying IRCTC...' : 'Live PNR Status'}</span>
+          </button>
         </div>
 
         {/* Simulated Barcode */}

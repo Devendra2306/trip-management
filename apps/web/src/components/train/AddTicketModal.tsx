@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Zap } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -29,6 +30,34 @@ export function AddTicketModal({ isOpen, onClose, tripId, onTicketAdded }: AddTi
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [fetchingPnr, setFetchingPnr] = useState(false);
+
+  const handleFetchPnr = async () => {
+    if (!formData.pnr || formData.pnr.length !== 10) return;
+    setFetchingPnr(true);
+    try {
+      const res = await fetch(`/api/pnr/${formData.pnr}`);
+      const data = await res.json();
+      if (data?.data) {
+        const d = data.data;
+        setFormData((prev) => ({
+          ...prev,
+          train_number: d.train_number || prev.train_number,
+          train_name: d.train_name || prev.train_name,
+          from_station: d.from_station?.code || prev.from_station,
+          from_station_name: d.from_station?.name || prev.from_station_name,
+          to_station: d.to_station?.code || prev.to_station,
+          to_station_name: d.to_station?.name || prev.to_station_name,
+          boarding_date: d.boarding_date || prev.boarding_date,
+          journey_class: d.journey_class || prev.journey_class,
+        }));
+      }
+    } catch (e) {
+      console.warn('Auto-fetch PNR failed', e);
+    } finally {
+      setFetchingPnr(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +84,7 @@ export function AddTicketModal({ isOpen, onClose, tripId, onTicketAdded }: AddTi
 
       const userId = user?.id || DEFAULT_USER.id;
 
+      let inserted = false;
       const { error } = await supabase.from('tickets').insert({
         trip_id: tripId,
         pnr: formData.pnr,
@@ -69,21 +99,38 @@ export function AddTicketModal({ isOpen, onClose, tripId, onTicketAdded }: AddTi
         added_by: userId,
       });
 
-      if (error) throw error;
+      if (!error) {
+        inserted = true;
+      } else {
+        // Fallback to server API
+        const res = await fetch('/api/tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formData, trip_id: tripId }),
+        });
+        const resData = await res.json();
+        if (res.ok && resData.success) {
+          inserted = true;
+        } else {
+          throw new Error(resData.error || error.message);
+        }
+      }
 
-      onTicketAdded();
-      onClose();
-      setFormData({
-        pnr: '',
-        train_number: '',
-        train_name: '',
-        from_station: '',
-        from_station_name: '',
-        to_station: '',
-        to_station_name: '',
-        boarding_date: '',
-        journey_class: '3A',
-      });
+      if (inserted) {
+        onTicketAdded();
+        onClose();
+        setFormData({
+          pnr: '',
+          train_number: '',
+          train_name: '',
+          from_station: '',
+          from_station_name: '',
+          to_station: '',
+          to_station_name: '',
+          boarding_date: '',
+          journey_class: '3A',
+        });
+      }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add ticket';
       setErrors({ form: errorMessage });
@@ -101,15 +148,30 @@ export function AddTicketModal({ isOpen, onClose, tripId, onTicketAdded }: AddTi
           </div>
         )}
 
-        <Input
-          label="10-Digit PNR Number"
-          placeholder="e.g. 2458910293"
-          maxLength={10}
-          value={formData.pnr}
-          onChange={(e) => setFormData({ ...formData, pnr: e.target.value.replace(/\D/g, '') })}
-          error={errors.pnr}
-          required
-        />
+        <div>
+          <Input
+            label="10-Digit PNR Number"
+            placeholder="e.g. 2458910293"
+            maxLength={10}
+            value={formData.pnr}
+            onChange={(e) => setFormData({ ...formData, pnr: e.target.value.replace(/\D/g, '') })}
+            error={errors.pnr}
+            required
+          />
+          {formData.pnr.length === 10 && (
+            <button
+              type="button"
+              onClick={handleFetchPnr}
+              disabled={fetchingPnr}
+              className="mt-1 text-xs text-saffron hover:text-saffron-dark font-bold flex items-center space-x-1.5 transition-colors"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              <span>
+                {fetchingPnr ? 'Fetching Live IRCTC PNR Details...' : '⚡ Auto-fill Details from Live PNR'}
+              </span>
+            </button>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Input

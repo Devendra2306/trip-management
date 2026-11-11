@@ -156,6 +156,7 @@ export default function TripTrainsPage() {
                 latestStatus={historyMap[ticket.id]}
                 canDelete={true}
                 onDelete={() => handleDeleteTicket(ticket.id)}
+                onRefresh={fetchTicketsAndStatus}
               />
             ))}
           </div>
