@@ -7,8 +7,9 @@ import { Train, ArrowLeft } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { createTripSchema, generateInviteCode } from '@yatra/shared';
+import { createTripSchema, generateInviteCode, type Trip } from '@yatra/shared';
 import { createClient } from '@/lib/supabase/client';
+import { saveLocalTrip } from '@/lib/storage';
 
 export default function NewTripPage() {
   const router = useRouter();
@@ -44,58 +45,42 @@ export default function NewTripPage() {
 
     setLoading(true);
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const inviteCode = generateInviteCode();
+      const localId = crypto.randomUUID();
+      let createdTrip: Trip = {
+        id: localId,
+        name: payload.name,
+        description: payload.description,
+        cover_image_url: null,
+        start_date: payload.start_date,
+        end_date: payload.end_date,
+        invite_code: inviteCode,
+        created_by: '00000000-0000-0000-0000-000000000001',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-      let createdTripId: string | null = null;
-
-      if (user) {
-        const inviteCode = generateInviteCode();
-        const { data: trip, error: tripError } = await supabase
-          .from('trips')
-          .insert({
-            name: payload.name,
-            description: payload.description,
-            start_date: payload.start_date,
-            end_date: payload.end_date,
-            invite_code: inviteCode,
-            created_by: user.id,
-          })
-          .select()
-          .single();
-
-        if (!tripError && trip) {
-          createdTripId = trip.id;
-          await supabase.from('trip_members').upsert({
-            trip_id: trip.id,
-            user_id: user.id,
-            role: 'organizer',
-          });
-        }
-      }
-
-      // If client-side insert failed or user is in PIN mode, call server API
-      if (!createdTripId) {
+      try {
         const res = await fetch('/api/trips', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
 
-        const data = await res.json();
-        if (!res.ok || data.error) {
-          throw new Error(data.error || 'Failed to create trip');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.trip) {
+            createdTrip = data.trip as Trip;
+          }
         }
-        createdTripId = data.trip?.id;
+      } catch (netErr) {
+        console.warn('Network call to /api/trips failed, using local offline trip', netErr);
       }
 
-      if (!createdTripId) {
-        throw new Error('Unable to create trip. Please try again.');
-      }
+      // Always save to local storage cache so it immediately appears everywhere
+      saveLocalTrip(createdTrip);
 
-      router.push(`/trips/${createdTripId}`);
+      router.push(`/trips/${createdTrip.id}`);
     } catch (err: unknown) {
       setErrors({ form: err instanceof Error ? err.message : 'Failed to create trip' });
     } finally {

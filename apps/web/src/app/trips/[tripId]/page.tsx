@@ -6,6 +6,7 @@ import { Copy, Check, Users, Train, Calendar, IndianRupee, Share2 } from 'lucide
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
 import { formatDate } from '@/lib/utils';
+import { getLocalTripById } from '@/lib/storage';
 import type { Trip, TripMember } from '@yatra/shared';
 
 export default function TripOverviewPage() {
@@ -31,7 +32,12 @@ export default function TripOverviewPage() {
         supabase.from('expenses').select('id', { count: 'exact' }).eq('trip_id', tripId),
       ]);
 
-      if (tripRes.data) setTrip(tripRes.data as Trip);
+      if (tripRes.data) {
+        setTrip(tripRes.data as Trip);
+      } else {
+        const local = getLocalTripById(tripId);
+        if (local) setTrip(local);
+      }
       if (membersRes.data) setMembers(membersRes.data as TripMember[]);
       if (ticketsRes.count !== null) setTicketCount(ticketsRes.count);
       if (plansRes.count !== null) setPlanCount(plansRes.count);

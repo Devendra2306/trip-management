@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { createClient } from '@/lib/supabase/client';
+import { getLocalTrips, saveLocalTrip } from '@/lib/storage';
 import type { Trip } from '@yatra/shared';
 
 interface TripWithRole extends Trip {
@@ -28,24 +29,32 @@ export default function TripsDashboard() {
 
   const fetchTrips = async () => {
     setLoading(true);
+    // 1. Immediately show locally cached trips
+    const local = getLocalTrips();
+    if (local && local.length > 0) {
+      setTrips(local.map((t) => ({ ...t, role: 'organizer' })));
+    }
+
+    // 2. Fetch from Supabase
     try {
       const supabase = createClient();
-
-      // Fetch all trips directly for PIN access mode
       const { data: tripList, error } = await supabase
         .from('trips')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && tripList) {
+      if (!error && tripList && tripList.length > 0) {
         const formatted = tripList.map((t) => ({
           ...(t as unknown as Trip),
           role: 'organizer',
         }));
-        setTrips(formatted);
+        const idSet = new Set(formatted.map((t) => t.id));
+        const merged = [...formatted, ...local.filter((l) => !idSet.has(l.id))];
+        setTrips(merged);
+        tripList.forEach((t) => saveLocalTrip(t as unknown as Trip));
       }
     } catch (e) {
-      console.warn('Failed to fetch trips', e);
+      console.warn('Failed to fetch trips from Supabase, relying on local storage', e);
     } finally {
       setLoading(false);
     }

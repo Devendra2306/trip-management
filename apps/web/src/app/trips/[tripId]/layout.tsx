@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { TripTabs } from '@/components/layout/TripTabs';
 import { createClient } from '@/lib/supabase/client';
+import { getLocalTripById } from '@/lib/storage';
 import type { Trip, TripRole } from '@yatra/shared';
 
 export default function TripLayout({ children }: { children: React.ReactNode }): React.ReactElement {
@@ -23,15 +24,23 @@ export default function TripLayout({ children }: { children: React.ReactNode }):
       // Check membership or default to organizer
       setRole('organizer');
 
-      // Load trip data
-      const { data: tripData } = await supabase
-        .from('trips')
-        .select('*')
-        .eq('id', tripId)
-        .single();
+      // Load trip data from Supabase
+      try {
+        const { data: tripData } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('id', tripId)
+          .single();
 
-      if (tripData) {
-        setTrip(tripData as Trip);
+        if (tripData) {
+          setTrip(tripData as Trip);
+        } else {
+          const local = getLocalTripById(tripId);
+          if (local) setTrip(local);
+        }
+      } catch {
+        const local = getLocalTripById(tripId);
+        if (local) setTrip(local);
       }
       setLoading(false);
     }
