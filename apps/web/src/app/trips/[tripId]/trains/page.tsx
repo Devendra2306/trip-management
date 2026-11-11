@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Plus, Train, RefreshCw } from 'lucide-react';
+import { Plus, Train, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TicketStub } from '@/components/train/TicketStub';
 import { SplitFlapDisplay } from '@/components/train/SplitFlapDisplay';
 import { AddTicketModal } from '@/components/train/AddTicketModal';
+import { OfficialPnrEnquiryModal } from '@/components/train/OfficialPnrEnquiryModal';
 import { createClient } from '@/lib/supabase/client';
 import type { Ticket, PnrStatusHistory } from '@yatra/shared';
 
@@ -18,6 +19,7 @@ export default function TripTrainsPage() {
   const [historyMap, setHistoryMap] = useState<Record<string, PnrStatusHistory>>({});
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEnquiryOpen, setIsEnquiryOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
   const fetchTicketsAndStatus = useCallback(async () => {
@@ -118,12 +120,22 @@ export default function TripTrainsPage() {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <SplitFlapDisplay text={flapText} padLength={12} label="NEXT TRAIN STATUS" />
-          <Button onClick={() => setIsAddOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Add Ticket
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsEnquiryOpen(true)}
+              className="bg-white/10 hover:bg-white/20 text-white border-brass/60 hover:border-brass shadow-xs"
+            >
+              <Search className="h-4 w-4 mr-1.5 text-brass" />
+              IRCTC PNR Enquiry
+            </Button>
+            <Button onClick={() => setIsAddOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add Ticket
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -140,12 +152,18 @@ export default function TripTrainsPage() {
             <Train className="h-12 w-12 mx-auto text-brass mb-3 opacity-80" />
             <h3 className="font-bold text-navy text-lg">No train tickets linked</h3>
             <p className="text-slate text-sm mt-1 max-w-sm mx-auto mb-6">
-              Add your IRCTC booking PNR numbers so all travelers can track seats, coaches, and chart preparation.
+              Check live IRCTC status or add your booking PNR numbers so all travelers can track seats, coaches, and chart preparation.
             </p>
-            <Button onClick={() => setIsAddOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add First Ticket
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button onClick={() => setIsAddOpen(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add First Ticket
+              </Button>
+              <Button variant="outline" onClick={() => setIsEnquiryOpen(true)}>
+                <Search className="h-4 w-4 mr-1.5 text-saffron" />
+                IRCTC PNR Enquiry (Official CRIS)
+              </Button>
+            </div>
           </div>
         ) : (
           <div>
@@ -166,6 +184,13 @@ export default function TripTrainsPage() {
       <AddTicketModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
+        tripId={tripId}
+        onTicketAdded={fetchTicketsAndStatus}
+      />
+
+      <OfficialPnrEnquiryModal
+        isOpen={isEnquiryOpen}
+        onClose={() => setIsEnquiryOpen(false)}
         tripId={tripId}
         onTicketAdded={fetchTicketsAndStatus}
       />

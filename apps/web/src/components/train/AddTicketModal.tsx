@@ -31,6 +31,34 @@ export function AddTicketModal({ isOpen, onClose, tripId, onTicketAdded }: AddTi
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [fetchingPnr, setFetchingPnr] = useState(false);
+  const [fetchingTrain, setFetchingTrain] = useState(false);
+
+  const handleLookupTrain = async (trainNum: string) => {
+    const cleanNum = trainNum.trim().replace(/\D/g, '');
+    if (cleanNum.length < 4) return;
+    setFetchingTrain(true);
+    try {
+      const res = await fetch(`/api/train/${cleanNum}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data) {
+          const t = json.data;
+          setFormData((prev) => ({
+            ...prev,
+            train_name: t.name || prev.train_name,
+            from_station: t.from?.code || prev.from_station,
+            from_station_name: t.from?.name || prev.from_station_name,
+            to_station: t.to?.code || prev.to_station,
+            to_station_name: t.to?.name || prev.to_station_name,
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('Train lookup failed', e);
+    } finally {
+      setFetchingTrain(false);
+    }
+  };
 
   const handleFetchPnr = async () => {
     if (!formData.pnr || formData.pnr.length !== 10) return;
@@ -174,14 +202,33 @@ export function AddTicketModal({ isOpen, onClose, tripId, onTicketAdded }: AddTi
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Train Number"
-            placeholder="e.g. 12951"
-            value={formData.train_number}
-            onChange={(e) => setFormData({ ...formData, train_number: e.target.value })}
-            error={errors.train_number}
-            required
-          />
+          <div>
+            <Input
+              label="Train Number"
+              placeholder="e.g. 12951"
+              maxLength={5}
+              value={formData.train_number}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                setFormData({ ...formData, train_number: val });
+                if (val.length === 5) {
+                  handleLookupTrain(val);
+                }
+              }}
+              onBlur={() => {
+                if (formData.train_number.length >= 4) {
+                  handleLookupTrain(formData.train_number);
+                }
+              }}
+              error={errors.train_number}
+              required
+            />
+            {fetchingTrain && (
+              <span className="text-[10px] text-saffron font-mono block mt-0.5">
+                Fetching train details...
+              </span>
+            )}
+          </div>
           <Input
             label="Train Name"
             placeholder="e.g. Rajdhani Express"
