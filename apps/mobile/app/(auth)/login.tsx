@@ -9,6 +9,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
@@ -56,6 +57,41 @@ export default function LoginScreen() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: oauthErr } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'jalkhoj://auth/callback',
+        },
+      });
+
+      if (oauthErr) throw oauthErr;
+
+      if (data?.url) {
+        await Linking.openURL(data.url);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        msg.includes('Unsupported provider') ||
+        msg.includes('provider is not enabled') ||
+        msg.includes('validation_failed')
+      ) {
+        Alert.alert(
+          'Google Provider Notice',
+          'Google OAuth is not enabled in your Supabase project yet. You can use the PIN (7977303911) or One-Click Access button below to log in directly!'
+        );
+      } else {
+        Alert.alert('Google Sign-In Failed', msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -64,18 +100,18 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.badge}>DIRECT PIN ACCESS</Text>
+          <Text style={styles.badge}>SECURE ACCESS</Text>
           <Text style={styles.title}>JAL KHOJ</Text>
           <Text style={styles.subtitle}>
-            Enter the security PIN to unlock journeys, trains, itineraries & money splits.
+            Sign in with Google or enter PIN to access your train journeys & shared expenses.
           </Text>
         </View>
 
-        {/* PIN Entry Card */}
+        {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Enter Security PIN</Text>
+          <Text style={styles.cardTitle}>Sign In</Text>
           <Text style={styles.cardSubtitle}>
-            Hardcoded PIN mode enabled. Instant access without email or passwords.
+            Choose Google Sign-In or Direct PIN Access
           </Text>
 
           {error && (
@@ -84,8 +120,27 @@ export default function LoginScreen() {
             </View>
           )}
 
+          {/* Option 1: Continue with Google */}
+          <TouchableOpacity
+            style={styles.googleBtn}
+            onPress={handleGoogleLogin}
+            disabled={loading}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.googleIcon}>G</Text>
+            <Text style={styles.googleBtnText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR USE PIN</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Option 2: PIN input */}
           <View style={styles.pinContainer}>
-            <Text style={styles.pinLabel}>ACCESS PIN</Text>
+            <Text style={styles.pinLabel}>ACCESS PIN (7977303911)</Text>
             <TextInput
               style={styles.pinInput}
               placeholder="7977303911"
@@ -97,7 +152,6 @@ export default function LoginScreen() {
               }}
               keyboardType="number-pad"
               maxLength={10}
-              autoFocus
             />
           </View>
 
@@ -105,7 +159,7 @@ export default function LoginScreen() {
             title="Unlock Jal Khoj"
             onPress={handlePinSubmit}
             isLoading={loading}
-            style={{ marginTop: 8 }}
+            style={{ marginTop: 4 }}
           />
 
           {/* Instant 1-Click Access Button */}
@@ -139,7 +193,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   badge: {
     fontSize: 10,
@@ -147,25 +201,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: PALETTE.brass,
     letterSpacing: 1.5,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   title: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '900',
     color: PALETTE.navy,
     letterSpacing: 2,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: PALETTE.slate,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: 4,
     maxWidth: 280,
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
     borderWidth: 1.5,
     borderColor: 'rgba(201, 169, 78, 0.4)',
     shadowColor: '#000',
@@ -185,7 +239,52 @@ const styles = StyleSheet.create({
     color: PALETTE.slate,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: PALETTE.ash,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  googleIcon: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#4285F4',
+    marginRight: 10,
+  },
+  googleBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.navy,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: PALETTE.ash,
+  },
+  dividerText: {
+    paddingHorizontal: 10,
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: PALETTE.slate,
+    letterSpacing: 1,
   },
   errorBanner: {
     backgroundColor: '#FFF5F5',
@@ -193,35 +292,35 @@ const styles = StyleSheet.create({
     borderColor: '#FEB2B2',
     padding: 10,
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   errorText: {
     color: PALETTE.rust,
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
     fontWeight: '600',
   },
   pinContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
     alignItems: 'center',
   },
   pinLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontWeight: '700',
     color: PALETTE.slate,
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   pinInput: {
     width: '100%',
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 2,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1.5,
     borderColor: PALETTE.ash,
     backgroundColor: '#F8FAFC',
     textAlign: 'center',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     letterSpacing: 4,
@@ -230,19 +329,19 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: PALETTE.ash,
-    marginVertical: 18,
+    marginVertical: 14,
   },
   quickAccessButton: {
     backgroundColor: '#ECFDF5',
     borderWidth: 1.5,
     borderColor: '#A7F3D0',
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
   quickAccessBadge: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     color: '#059669',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
@@ -250,7 +349,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   quickAccessText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#065F46',
   },

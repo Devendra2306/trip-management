@@ -10,10 +10,16 @@ export async function GET(request: Request) {
     const supabase = createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${requestUrl.origin}${next}`);
+      const response = NextResponse.redirect(`${requestUrl.origin}${next}`);
+      response.cookies.set('jalkhoj_pin', '7977303911', {
+        path: '/',
+        maxAge: 31536000,
+        sameSite: 'lax',
+      });
+      return response;
     }
   }
 
-  // Return the user to an error page with some instructions
+  // Return the user to login with error parameter
   return NextResponse.redirect(`${requestUrl.origin}/login?error=auth_failed`);
 }
