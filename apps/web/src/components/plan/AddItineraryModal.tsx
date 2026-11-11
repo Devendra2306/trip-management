@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { createItineraryItemSchema, type ItineraryItemType } from '@yatra/shared';
 import { createClient } from '@/lib/supabase/client';
+import { DEFAULT_USER } from '@/lib/auth';
 
 interface AddItineraryModalProps {
   isOpen: boolean;
@@ -59,7 +60,14 @@ export function AddItineraryModal({ isOpen, onClose, tripId, onItemAdded }: AddI
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error('Not authenticated');
+      const userId = user?.id || DEFAULT_USER.id;
+
+      // Ensure profile exists for PIN user
+      await supabase.from('profiles').upsert({
+        id: userId,
+        email: user?.email || DEFAULT_USER.email,
+        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
+      });
 
       const { error } = await supabase.from('itinerary_items').insert({
         trip_id: tripId,
@@ -71,7 +79,7 @@ export function AddItineraryModal({ isOpen, onClose, tripId, onItemAdded }: AddI
         start_time: payload.start_time,
         end_time: payload.end_time,
         location: payload.location,
-        created_by: user.id,
+        created_by: userId,
       });
 
       if (error) throw error;

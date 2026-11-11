@@ -14,7 +14,7 @@ export default function TripPlanPage() {
   const tripId = params.tripId as string;
 
   const [items, setItems] = useState<ItineraryItem[]>([]);
-  const [role, setRole] = useState<TripRole>('member');
+  const [role, setRole] = useState<TripRole>('organizer');
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
 

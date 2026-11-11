@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { addTicketSchema } from '@yatra/shared';
 import { createClient } from '@/lib/supabase/client';
+import { DEFAULT_USER } from '@/lib/auth';
 
 interface AddTicketModalProps {
   isOpen: boolean;
@@ -52,7 +53,14 @@ export function AddTicketModal({ isOpen, onClose, tripId, onTicketAdded }: AddTi
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error('Not authenticated');
+      const userId = user?.id || DEFAULT_USER.id;
+
+      // Ensure profile exists for PIN user
+      await supabase.from('profiles').upsert({
+        id: userId,
+        email: user?.email || DEFAULT_USER.email,
+        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
+      });
 
       const { error } = await supabase.from('tickets').insert({
         trip_id: tripId,
@@ -65,7 +73,7 @@ export function AddTicketModal({ isOpen, onClose, tripId, onTicketAdded }: AddTi
         to_station_name: formData.to_station_name,
         boarding_date: formData.boarding_date,
         journey_class: formData.journey_class,
-        added_by: user.id,
+        added_by: userId,
       });
 
       if (error) throw error;

@@ -49,7 +49,14 @@ export default function NewTripPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error('Not authenticated');
+      const userId = user?.id || '00000000-0000-0000-0000-000000000001';
+
+      // Ensure profile exists for PIN user
+      await supabase.from('profiles').upsert({
+        id: userId,
+        email: 'admin@jalkhoj.app',
+        display_name: 'Lead Traveler',
+      });
 
       const inviteCode = generateInviteCode();
 
@@ -62,7 +69,7 @@ export default function NewTripPage() {
           start_date: payload.start_date,
           end_date: payload.end_date,
           invite_code: inviteCode,
-          created_by: user.id,
+          created_by: userId,
         })
         .select()
         .single();
@@ -70,13 +77,11 @@ export default function NewTripPage() {
       if (tripError) throw tripError;
 
       // 2. Insert creator as organizer in trip_members
-      const { error: memberError } = await supabase.from('trip_members').insert({
+      await supabase.from('trip_members').upsert({
         trip_id: trip.id,
-        user_id: user.id,
+        user_id: userId,
         role: 'organizer',
       });
-
-      if (memberError) throw memberError;
 
       router.push(`/trips/${trip.id}`);
     } catch (err: unknown) {

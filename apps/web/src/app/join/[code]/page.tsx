@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Train, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
+import { DEFAULT_USER } from '@/lib/auth';
 
 export default function JoinTripPage() {
   const params = useParams();
@@ -25,21 +26,44 @@ export default function JoinTripPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        // Redirect to login, but keep the return path
-        router.push(`/login?next=/join/${code}`);
-        return;
-      }
+      const userId = user?.id || DEFAULT_USER.id;
 
       try {
+        // Try RPC first
         const { data: joinedTripId, error: joinErr } = await supabase.rpc('join_trip_by_code', {
           code,
         });
 
-        if (joinErr) throw joinErr;
+        if (!joinErr && joinedTripId) {
+          router.push(`/trips/${joinedTripId}`);
+          return;
+        }
 
-        setTripId(joinedTripId);
-        router.push(`/trips/${joinedTripId}`);
+        // Direct lookup by invite_code fallback
+        const { data: tripData, error: tripLookupErr } = await supabase
+          .from('trips')
+          .select('id')
+          .eq('invite_code', code)
+          .single();
+
+        if (tripLookupErr || !tripData) {
+          throw new Error('Invalid invite code');
+        }
+
+        await supabase.from('profiles').upsert({
+          id: userId,
+          email: user?.email || DEFAULT_USER.email,
+          display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
+        });
+
+        await supabase.from('trip_members').upsert({
+          trip_id: tripData.id,
+          user_id: userId,
+          role: 'member',
+        });
+
+        setTripId(tripData.id);
+        router.push(`/trips/${tripData.id}`);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Invalid invite code or unable to join');
         setLoading(false);

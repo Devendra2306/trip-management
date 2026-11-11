@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '../../../src/lib/supabase';
 import { offlineStorage } from '../../../src/lib/offline/storage';
+import { DEFAULT_USER, clearPinAuthenticated } from '../../../src/lib/auth';
 import { PALETTE, type Trip } from '@yatra/shared';
 
 export default function TripsListScreen() {
@@ -31,18 +32,32 @@ export default function TripsListScreen() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) return;
+      const userId = user?.id || DEFAULT_USER.id;
 
+      // First try fetching trips where user is a member
+      let freshTrips: Trip[] = [];
       const { data: memberRecords, error } = await supabase
         .from('trip_members')
         .select('trip_id, trips(*)')
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
-      if (!error && memberRecords) {
-        const freshTrips = memberRecords
+      if (!error && memberRecords && memberRecords.length > 0) {
+        freshTrips = memberRecords
           .filter((m) => m.trips)
           .map((m) => m.trips as unknown as Trip);
+      } else {
+        // Fallback for PIN mode: fetch all trips directly
+        const { data: allTrips, error: tripsErr } = await supabase
+          .from('trips')
+          .select('*')
+          .order('created_at', { ascending: false });
 
+        if (!tripsErr && allTrips) {
+          freshTrips = allTrips as unknown as Trip[];
+        }
+      }
+
+      if (freshTrips.length > 0) {
         setTrips(freshTrips);
         await offlineStorage.cacheTrips(freshTrips);
       }
@@ -60,6 +75,21 @@ export default function TripsListScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadTrips();
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Lock Jal Khoj', 'Do you want to log out and lock the app?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Lock App',
+        style: 'destructive',
+        onPress: async () => {
+          await clearPinAuthenticated();
+          await supabase.auth.signOut();
+          router.replace('/(auth)/login');
+        },
+      },
+    ]);
   };
 
   return (
@@ -86,8 +116,23 @@ export default function TripsListScreen() {
                   const { data: tripId, error } = await supabase.rpc('join_trip_by_code', {
                     code: clean,
                   });
-                  if (error) throw error;
-                  router.push(`/(app)/trips/${tripId}/overview`);
+                  if (!error && tripId) {
+                    router.push(`/(app)/trips/${tripId}/overview`);
+                    return;
+                  }
+
+                  // Direct lookup fallback for PIN mode
+                  const { data: trip, error: tErr } = await supabase
+                    .from('trips')
+                    .select('id')
+                    .eq('invite_code', clean)
+                    .single();
+
+                  if (tErr || !trip) {
+                    throw new Error('Invalid invite code');
+                  }
+
+                  router.push(`/(app)/trips/${trip.id}/overview`);
                 } catch (e: unknown) {
                   Alert.alert('Join Error', e instanceof Error ? e.message : 'Invalid invite code');
                 }
@@ -96,6 +141,10 @@ export default function TripsListScreen() {
           }}
         >
           <Text style={styles.joinText}>Join with Code</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.lockBtn} onPress={handleSignOut}>
+          <Text style={styles.lockText}>🔒</Text>
         </TouchableOpacity>
       </View>
 
@@ -148,10 +197,11 @@ const styles = StyleSheet.create({
   actionBar: {
     flexDirection: 'row',
     padding: 16,
-    gap: 12,
+    gap: 8,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: PALETTE.ash,
+    alignItems: 'center',
   },
   newTripBtn: {
     flex: 1,
@@ -177,6 +227,19 @@ const styles = StyleSheet.create({
     color: PALETTE.navy,
     fontWeight: '800',
     fontSize: 13,
+  },
+  lockBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: PALETTE.ash,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockText: {
+    fontSize: 14,
   },
   list: {
     padding: 16,

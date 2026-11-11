@@ -14,6 +14,7 @@ import {
   type TripMember,
 } from '@yatra/shared';
 import { createClient } from '@/lib/supabase/client';
+import { DEFAULT_USER } from '@/lib/auth';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -32,12 +33,15 @@ export function AddExpenseModal({
   currentUserId,
   onExpenseAdded,
 }: AddExpenseModalProps) {
+  const effectiveCurrentUserId = currentUserId || DEFAULT_USER.id;
   const [title, setTitle] = useState('');
   const [amountRupees, setAmountRupees] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('food');
-  const [paidBy, setPaidBy] = useState(currentUserId);
+  const [paidBy, setPaidBy] = useState(effectiveCurrentUserId);
   const [splitType, setSplitType] = useState<SplitType>('equal');
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(members.map((m) => m.user_id));
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
+    members.length > 0 ? members.map((m) => m.user_id) : [effectiveCurrentUserId]
+  );
   const [customValues, setCustomValues] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +123,15 @@ export function AddExpenseModal({
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error('Not authenticated');
+      const userId = user?.id || effectiveCurrentUserId;
+      const actualPaidBy = paidBy || userId;
+
+      // Ensure profile exists for PIN user
+      await supabase.from('profiles').upsert({
+        id: userId,
+        email: user?.email || DEFAULT_USER.email,
+        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
+      });
 
       // 1. Insert expense
       const { data: expense, error: expError } = await supabase
@@ -130,9 +142,9 @@ export function AddExpenseModal({
           amount: totalPaise,
           currency: 'INR',
           category,
-          paid_by: paidBy,
+          paid_by: actualPaidBy,
           split_type: splitType,
-          created_by: user.id,
+          created_by: userId,
         })
         .select()
         .single();

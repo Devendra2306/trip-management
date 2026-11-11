@@ -11,6 +11,10 @@ export function Navbar() {
   const router = useRouter();
 
   const handleSignOut = async () => {
+    document.cookie = 'jalkhoj_pin=; path=/; max-age=0;';
+    try {
+      localStorage.removeItem('jalkhoj_pin');
+    } catch {}
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');

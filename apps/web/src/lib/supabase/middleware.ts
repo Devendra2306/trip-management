@@ -1,60 +1,26 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+export const HARDCODED_PIN = '7977303911';
+
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
+  const pinCookie = request.cookies.get('jalkhoj_pin')?.value;
+  const isAuthenticated = pinCookie === HARDCODED_PIN;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key',
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({ name, value: '', ...options });
-        },
-      },
-    }
-  );
+  const isLoginRoute = request.nextUrl.pathname.startsWith('/login');
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/auth');
-
-  if (!user && !isAuthRoute && request.nextUrl.pathname !== '/') {
+  // If not authenticated and not on login page or landing page, redirect to login
+  if (!isAuthenticated && !isLoginRoute && request.nextUrl.pathname !== '/') {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  // If authenticated and trying to go to login, redirect to trips
+  if (isAuthenticated && isLoginRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/trips';
     return NextResponse.redirect(url);
   }
 
-  return response;
+  return NextResponse.next();
 }

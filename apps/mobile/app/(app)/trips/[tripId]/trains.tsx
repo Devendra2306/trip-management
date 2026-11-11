@@ -18,6 +18,7 @@ import { SplitFlapDisplay } from '../../../../src/components/train/SplitFlapDisp
 import { Input } from '../../../../src/components/ui/Input';
 import { Button } from '../../../../src/components/ui/Button';
 import { PALETTE, type Ticket, type PnrStatusHistory } from '@yatra/shared';
+import { DEFAULT_USER } from '../../../../src/lib/auth';
 
 export default function MobileTrainsTab() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
@@ -125,7 +126,14 @@ export default function MobileTrainsTab() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error('Not authenticated');
+      const userId = user?.id || DEFAULT_USER.id;
+
+      // Ensure profile exists for PIN user
+      await supabase.from('profiles').upsert({
+        id: userId,
+        email: user?.email || DEFAULT_USER.email,
+        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
+      });
 
       const { error } = await supabase.from('tickets').insert({
         trip_id: tripId,
@@ -138,7 +146,7 @@ export default function MobileTrainsTab() {
         to_station_name: toName.trim() || 'Destination',
         boarding_date: boardingDate.trim() || new Date().toISOString().split('T')[0],
         journey_class: journeyClass,
-        added_by: user.id,
+        added_by: userId,
       });
 
       if (error) throw error;

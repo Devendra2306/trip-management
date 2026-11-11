@@ -11,6 +11,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { Input } from '../../../src/components/ui/Input';
 import { Button } from '../../../src/components/ui/Button';
 import { generateInviteCode, createTripSchema } from '@yatra/shared';
+import { DEFAULT_USER } from '../../../src/lib/auth';
 
 export default function NewTripScreen() {
   const router = useRouter();
@@ -32,7 +33,14 @@ export default function NewTripScreen() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error('Not authenticated');
+      const userId = user?.id || DEFAULT_USER.id;
+
+      // Ensure profile exists for PIN user
+      await supabase.from('profiles').upsert({
+        id: userId,
+        email: user?.email || DEFAULT_USER.email,
+        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
+      });
 
       const inviteCode = generateInviteCode();
 
@@ -45,7 +53,7 @@ export default function NewTripScreen() {
           start_date: startDate || null,
           end_date: endDate || null,
           invite_code: inviteCode,
-          created_by: user.id,
+          created_by: userId,
         })
         .select()
         .single();
@@ -53,9 +61,9 @@ export default function NewTripScreen() {
       if (tripErr) throw tripErr;
 
       // 2. Insert creator as organizer
-      await supabase.from('trip_members').insert({
+      await supabase.from('trip_members').upsert({
         trip_id: trip.id,
-        user_id: user.id,
+        user_id: userId,
         role: 'organizer',
       });
 

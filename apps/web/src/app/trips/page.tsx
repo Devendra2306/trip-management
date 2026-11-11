@@ -28,32 +28,27 @@ export default function TripsDashboard() {
 
   const fetchTrips = async () => {
     setLoading(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const supabase = createClient();
 
-    if (!user) {
-      router.push('/login');
-      return;
-    }
+      // Fetch all trips directly for PIN access mode
+      const { data: tripList, error } = await supabase
+        .from('trips')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    // Fetch trips where user is a member
-    const { data: memberRecords } = await supabase
-      .from('trip_members')
-      .select('trip_id, role, trips(*)')
-      .eq('user_id', user.id);
-
-    if (memberRecords) {
-      const formatted = memberRecords
-        .filter((m) => m.trips)
-        .map((m) => ({
-          ...(m.trips as unknown as Trip),
-          role: m.role,
+      if (!error && tripList) {
+        const formatted = tripList.map((t) => ({
+          ...(t as unknown as Trip),
+          role: 'organizer',
         }));
-      setTrips(formatted);
+        setTrips(formatted);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch trips', e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {

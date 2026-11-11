@@ -10,6 +10,7 @@ import { BalanceSummary } from '@/components/money/BalanceSummary';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { simplifyDebts, type Expense, type TripMember, type Settlement, type SimplifiedDebt } from '@yatra/shared';
+import { DEFAULT_USER } from '@/lib/auth';
 
 interface BalanceRow {
   user_id: string;
@@ -41,7 +42,8 @@ export default function TripMoneyPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) setCurrentUserId(user.id);
+    const userId = user?.id || DEFAULT_USER.id;
+    setCurrentUserId(userId);
 
     // 1. Fetch trip members
     const { data: memberList } = await supabase
@@ -49,7 +51,28 @@ export default function TripMoneyPage() {
       .select('*, profile:profiles(*)')
       .eq('trip_id', tripId);
 
-    if (memberList) setMembers(memberList as TripMember[]);
+    if (memberList && memberList.length > 0) {
+      setMembers(memberList as TripMember[]);
+    } else {
+      setMembers([
+        {
+          id: 'temp-member-id',
+          trip_id: tripId,
+          user_id: userId,
+          role: 'organizer',
+          joined_at: new Date().toISOString(),
+          profile: {
+            id: userId,
+            email: DEFAULT_USER.email,
+            display_name: DEFAULT_USER.display_name,
+            avatar_url: null,
+            upi_vpa: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        },
+      ]);
+    }
 
     // 2. Fetch expenses with shares
     const { data: expList } = await supabase

@@ -16,12 +16,13 @@ import { offlineStorage } from '../../../../src/lib/offline/storage';
 import { Input } from '../../../../src/components/ui/Input';
 import { Button } from '../../../../src/components/ui/Button';
 import { PALETTE, type ItineraryItem, type TripRole } from '@yatra/shared';
+import { DEFAULT_USER } from '../../../../src/lib/auth';
 
 export default function MobilePlanTab() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
 
   const [items, setItems] = useState<ItineraryItem[]>([]);
-  const [role, setRole] = useState<TripRole>('member');
+  const [role, setRole] = useState<TripRole>('organizer');
   const [refreshing, setRefreshing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -57,6 +58,8 @@ export default function MobilePlanTab() {
           .eq('user_id', user.id)
           .single();
         if (member) setRole(member.role as TripRole);
+      } else {
+        setRole('organizer');
       }
 
       const { data: freshItems, error } = await supabase
@@ -107,7 +110,14 @@ export default function MobilePlanTab() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error('Not authenticated');
+      const userId = user?.id || DEFAULT_USER.id;
+
+      // Ensure profile exists for PIN user
+      await supabase.from('profiles').upsert({
+        id: userId,
+        email: user?.email || DEFAULT_USER.email,
+        display_name: user?.user_metadata?.display_name || DEFAULT_USER.display_name,
+      });
 
       const { error } = await supabase.from('itinerary_items').insert({
         trip_id: tripId,
@@ -118,7 +128,7 @@ export default function MobilePlanTab() {
         description: description.trim() || null,
         location: location.trim() || null,
         start_time: startTime.trim() || null,
-        created_by: user.id,
+        created_by: userId,
       });
 
       if (error) throw error;

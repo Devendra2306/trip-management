@@ -27,6 +27,7 @@ import {
   type TripMember,
   type SimplifiedDebt,
 } from '@yatra/shared';
+import { DEFAULT_USER } from '../../../../src/lib/auth';
 
 export default function MobileMoneyTab() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
@@ -35,7 +36,7 @@ export default function MobileMoneyTab() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [members, setMembers] = useState<TripMember[]>([]);
   const [simplifiedDebts, setSimplifiedDebts] = useState<SimplifiedDebt[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>(DEFAULT_USER.id);
   const [refreshing, setRefreshing] = useState(false);
   const [subTab, setSubTab] = useState<'expenses' | 'debts'>('expenses');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -66,7 +67,8 @@ export default function MobileMoneyTab() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) setCurrentUserId(user.id);
+      const userId = user?.id || DEFAULT_USER.id;
+      setCurrentUserId(userId);
 
       const [memberRes, expRes, setRes] = await Promise.all([
         supabase.from('trip_members').select('*, profile:profiles(*)').eq('trip_id', tripId),
@@ -78,7 +80,28 @@ export default function MobileMoneyTab() {
         supabase.from('settlements').select('*').eq('trip_id', tripId),
       ]);
 
-      if (memberRes.data) setMembers(memberRes.data as TripMember[]);
+      if (memberRes.data && memberRes.data.length > 0) {
+        setMembers(memberRes.data as TripMember[]);
+      } else {
+        setMembers([
+          {
+            id: 'temp-id',
+            trip_id: tripId,
+            user_id: userId,
+            role: 'organizer',
+            joined_at: new Date().toISOString(),
+            profile: {
+              id: userId,
+              email: DEFAULT_USER.email,
+              display_name: DEFAULT_USER.display_name,
+              avatar_url: null,
+              upi_vpa: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          },
+        ]);
+      }
       if (expRes.data) setExpenses(expRes.data);
       if (setRes.data) setSettlements(setRes.data as Settlement[]);
 
@@ -128,7 +151,8 @@ export default function MobileMoneyTab() {
 
     setAdding(true);
     const amountPaise = Math.round(rupees * 100);
-    const userIds = members.map((m) => m.user_id);
+    const effectiveUserId = currentUserId || DEFAULT_USER.id;
+    const userIds = members.length > 0 ? members.map((m) => m.user_id) : [effectiveUserId];
     const shares = calculateEqualSplit(amountPaise, userIds);
 
     const isOnline = networkStatus.isOnline();
@@ -142,9 +166,9 @@ export default function MobileMoneyTab() {
           amount: amountPaise,
           currency: 'INR',
           category,
-          paid_by: currentUserId,
+          paid_by: effectiveUserId,
           split_type: 'equal',
-          created_by: currentUserId,
+          created_by: effectiveUserId,
         },
         shares,
       });
@@ -157,7 +181,7 @@ export default function MobileMoneyTab() {
         amount: amountPaise,
         currency: 'INR',
         category,
-        paid_by: currentUserId,
+        paid_by: effectiveUserId,
         split_type: 'equal',
         created_at: new Date().toISOString(),
         shares,
@@ -181,6 +205,12 @@ export default function MobileMoneyTab() {
 
     // ONLINE INSERT
     try {
+      await supabase.from('profiles').upsert({
+        id: effectiveUserId,
+        email: DEFAULT_USER.email,
+        display_name: DEFAULT_USER.display_name,
+      });
+
       const { data: exp, error: expErr } = await supabase
         .from('expenses')
         .insert({
@@ -189,9 +219,9 @@ export default function MobileMoneyTab() {
           amount: amountPaise,
           currency: 'INR',
           category,
-          paid_by: currentUserId,
+          paid_by: effectiveUserId,
           split_type: 'equal',
-          created_by: currentUserId,
+          created_by: effectiveUserId,
         })
         .select()
         .single();

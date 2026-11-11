@@ -27,7 +27,7 @@ export default function TripTrainsPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) setCurrentUserId(user.id);
+    setCurrentUserId(user?.id || '00000000-0000-0000-0000-000000000001');
 
     // 1. Fetch tickets
     const { data: ticketList } = await supabase
